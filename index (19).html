@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Comando e Controle - Mapa de Força Dinâmico</title>
+<style>
+/* --- VARIÁVEIS & TEMAS --- */
+:root {
+    --bm-red: #c0292b; --bm-red-dark: #991b1b; --bm-blue: #1e3a8a;
+    --bg-body: #f3f4f6; --bg-card: #ffffff; --text-main: #1f2937;
+    --text-sec: #6b7280; --border-color: #e5e7eb;
+    --shadow-card: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    --filter-bg: #1e3a8a; --header-bg: #ffffff;
+    --status-ok: #10b981; --status-warn: #f59e0b; --status-crit: #ef4444;
+    --vtr-fire: #dc2626; --vtr-amb: #2563eb; --vtr-rescue: #ea580c;
+    --vtr-boat: #0891b2; --vtr-drone: #4f46e5; --vtr-k9: #d97706;
+    --vtr-pgv: #fbbf24; --vtr-special: #7e22ce; --vtr-admin: #6b7280;
+    --vtr-deaev: #7c3aed;
+}
+body.dark-mode {
+    --bg-body: #111827; --bg-card: #1f2937; --text-main: #f3f4f6;
+    --text-sec: #9ca3af; --border-color: #374151;
+    --shadow-card: 0 4px 6px -1px rgba(0,0,0,0.5);
+    --filter-bg: #1f2937; --header-bg: #1f2937; --bm-red: #ef4444;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-body); color: var(--text-main); padding: 20px; font-size: 14px; overflow-x: hidden; }
+
+/* =============================================
+   CUSTOM DIALOG SYSTEM
+   (substitui alert/confirm/prompt nativos
+    que são bloqueados pelo Google Sites)
+   ============================================= */
+#customDialogOverlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 99999;
+    display: none; justify-content: center; align-items: center;
+    backdrop-filter: blur(4px);
+}
+#customDialogOverlay.active { display: flex; }
+.custom-dialog-box {
+    background: #fff; border-radius: 14px; padding: 32px 28px 24px;
+    max-width: 460px; width: 92%; box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+    border-top: 5px solid var(--bm-red); animation: dlgIn .18s ease;
+}
+@keyframes dlgIn { from { transform: scale(.93) translateY(-10px); opacity:0; } to { transform: scale(1) translateY(0); opacity:1; } }
+.custom-dialog-box .dlg-icon { font-size: 2rem; text-align: center; margin-bottom: 10px; }
+.custom-dialog-box .dlg-msg { font-size: .95rem; color: #374151; line-height: 1.55; white-space: pre-wrap; margin-bottom: 16px; text-align: center; }
+.custom-dialog-box .dlg-input {
+    width: 100%; padding: 10px 12px; border: 2px solid #d1d5db;
+    border-radius: 8px; font-size: .95rem; margin-bottom: 16px;
+    display: none; text-align: center;
+}
+.custom-dialog-box .dlg-input:focus { border-color: var(--bm-red); outline: none; }
+.custom-dialog-box .dlg-input.visible { display: block; }
+.dlg-btns { display: flex; gap: 10px; justify-content: center; }
+.dlg-btn { padding: 9px 24px; border-radius: 8px; border: none; font-size: .9rem; font-weight: 700; cursor: pointer; }
+.dlg-btn-ok { background: var(--bm-red); color: #fff; }
+.dlg-btn-ok:hover { background: var(--bm-red-dark); }
+.dlg-btn-cancel { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; display: none; }
+.dlg-btn-cancel.visible { display: block; }
+.dlg-btn-cancel:hover { background: #e5e7eb; }
+
+/* --- LOGIN --- */
+#loginOverlay, #efetivoOverlay, #adminOverlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(30, 58, 138, 0.92);
+    z-index: 9999; display: flex; justify-content: center; align-items: center;
+    backdrop-filter: blur(5px);
+}
+.login-card { background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; border-top: 6px solid var(--bm-red); }
+.login-logo { width: 100px; height: 100px; object-fit: contain; margin-bottom: 20px; }
+.login-title { font-size: 1.5rem; font-weight: 800; color: #1f2937; margin-bottom: 5px; text-transform: uppercase; }
+.login-subtitle { font-size: 0.9rem; color: #6b7280; margin-bottom: 25px; }
+.login-input { width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 1rem; margin-bottom: 15px; text-align: center; transition: border-color 0.3s; }
+.login-input:focus { border-color: var(--bm-red); outline: none; }
+.login-btn { background-color: var(--bm-red); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; width: 100%; text-transform: uppercase; transition: background-color 0.2s; }
+.login-btn:hover { background-color: var(--bm-red-dark); }
+.login-error { color: var(--status-crit); font-size: 0.85rem; margin-top: 10px; display: none; font-weight: 600; }
+
+/* --- ADMIN PANEL --- */
+#adminOverlay, #excelImportOverlay { display: none; align-items: flex-start; overflow-y: auto; padding: 20px; }
+.admin-panel { background: white; border-radius: 16px; width: 100%; max-width: 1100px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); border-top: 6px solid var(--bm-red); display: flex; flex-direction: column; margin: auto; overflow: hidden; }
+.admin-header { background: #1e3a8a; color: white; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+.admin-header h2 { font-size: 1.1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+.admin-header-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.admin-body { display: grid; grid-template-columns: 280px 1fr; min-height: 500px; }
+.admin-sidebar { border-right: 1px solid #e5e7eb; display: flex; flex-direction: column; }
+.admin-search { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+.admin-search input { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; }
+.admin-city-list { overflow-y: auto; flex: 1; max-height: 500px; }
+.admin-city-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 600; color: #374151; }
+.admin-city-item:hover { background: #f0f4ff; }
+.admin-city-item.selected { background: #dbeafe; color: #1e3a8a; }
+.admin-city-item .badge-ef { background: #e5e7eb; color: #6b7280; padding: 2px 7px; border-radius: 10px; font-size: 0.75rem; }
+.admin-add-city { padding: 10px 14px; background: #f0fdf4; border-top: 1px solid #e5e7eb; }
+.admin-main { padding: 20px; overflow-y: auto; max-height: 600px; }
+.admin-main h3 { font-size: 1rem; font-weight: 800; color: #1e3a8a; margin-bottom: 15px; text-transform: uppercase; }
+.admin-placeholder { color: #9ca3af; font-size: 0.95rem; text-align: center; padding: 60px 20px; }
+.quartel-editor { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; margin-bottom: 15px; position: relative; }
+.quartel-editor label { font-size: 0.78rem; font-weight: 700; color: #6b7280; text-transform: uppercase; display: block; margin-bottom: 4px; margin-top: 10px; }
+.quartel-editor label:first-child { margin-top: 0; }
+.quartel-editor input, .quartel-editor textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.88rem; font-family: inherit; }
+.quartel-editor textarea { min-height: 100px; resize: vertical; line-height: 1.6; }
+.quartel-editor .q-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 3px; }
+.quartel-del-btn { position: absolute; top: 10px; right: 10px; background: #fef2f2; border: 1px solid #fecaca; color: #dc2626; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.8rem; }
+.admin-footer { padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.btn-admin { padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 6px; }
+.btn-save { background: #10b981; color: white; }
+.btn-save:hover { background: #059669; }
+.btn-export { background: #3b82f6; color: white; }
+.btn-export:hover { background: #2563eb; }
+.btn-import { background: #8b5cf6; color: white; }
+.btn-import:hover { background: #7c3aed; }
+.btn-reset { background: #f59e0b; color: white; margin-left: auto; }
+.btn-reset:hover { background: #d97706; }
+.btn-close-admin { background: #6b7280; color: white; }
+.btn-close-admin:hover { background: #4b5563; }
+.btn-add-q { background: #dbeafe; color: #1e3a8a; border: 1px dashed #93c5fd; width: 100%; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.88rem; margin-top: 5px; }
+.btn-add-q:hover { background: #bfdbfe; }
+.btn-sm { background: #f3f4f6; border: 1px solid #d1d5db; color: #374151; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+.btn-sm:hover { background: #e5e7eb; }
+.btn-sm.danger { background: #fef2f2; border-color: #fecaca; color: #dc2626; }
+.admin-city-name-input { font-size: 1rem; font-weight: 800; padding: 8px 12px; border: 2px solid #bfdbfe; border-radius: 8px; width: 100%; margin-bottom: 12px; color: #1e3a8a; text-transform: uppercase; }
+.admin-notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; font-size: 0.82rem; color: #92400e; margin-bottom: 15px; }
+.admin-badge-saved { background: #d1fae5; color: #065f46; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; display: none; }
+
+/* --- EFETIVO MODAL --- */
+#efetivoOverlay { display: none; }
+.efetivo-list-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #eee; color: #333; }
+.efetivo-list-item:last-child { border-bottom: none; }
+.efetivo-icon { margin-right: 10px; font-size: 1.2rem; }
+.efetivo-name { font-weight: 600; }
+.tag-deaev { background-color: var(--vtr-deaev); color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: bold; text-transform: uppercase; }
+
+#mainContent { display: none; }
+.container { max-width: 1800px; margin: 0 auto; }
+
+/* --- HEADER --- */
+header { background: var(--header-bg); padding: 15px 25px; border-radius: 12px; box-shadow: var(--shadow-card); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-top: 6px solid var(--bm-red); flex-wrap: wrap; gap: 15px; }
+.header-left { display: flex; align-items: center; gap: 20px; }
+.logo-img { width: 60px; height: 60px; object-fit: contain; }
+.header-info h1 { font-size: 1.5rem; color: var(--bm-red); text-transform: uppercase; font-weight: 900; letter-spacing: -0.5px; line-height: 1.2; }
+.header-meta { color: var(--text-sec); font-weight: 600; font-size: 0.9rem; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+.header-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.action-btn { background: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-main); padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.action-btn:hover { background: var(--border-color); }
+.action-btn.admin-btn { background: #fffbeb; border-color: #f59e0b; color: #92400e; }
+.action-btn.admin-btn:hover { background: #fef3c7; }
+.info-box { padding: 8px 16px; border-radius: 8px; text-align: center; display: flex; align-items: center; gap: 8px; background-color: rgba(30, 58, 138, 0.1); border: 1px solid var(--bm-blue); color: var(--bm-blue); }
+.alert-box { padding: 8px 16px; border-radius: 8px; text-align: center; display: flex; align-items: center; gap: 8px; background-color: rgba(239, 68, 68, 0.15); border: 1px solid var(--status-crit); color: var(--status-crit); display: none; animation: pulse-border 2s infinite; }
+@keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 70% { box-shadow: 0 0 0 10px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+.alert-val { font-weight: 800; font-size: 1.2rem; line-height: 1; }
+.alert-lbl { font-size: 0.75rem; text-transform: uppercase; font-weight: 700; opacity: 0.9; }
+.data-version { font-size: 0.75rem; color: var(--text-sec); background: var(--bg-body); padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border-color); }
+
+/* --- KPI --- */
+.ops-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 20px; }
+.stat-card { background: var(--bg-card); padding: 15px; border-radius: 8px; box-shadow: var(--shadow-card); text-align: center; border-bottom: 4px solid transparent; position: relative; overflow: hidden; cursor: pointer; transition: transform 0.2s, background-color 0.2s; }
+.stat-card:hover { transform: translateY(-2px); }
+.stat-card.active-filter { background-color: rgba(0,0,0,0.05); transform: scale(0.98); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
+.stat-card.general { border-color: var(--text-sec); cursor: default; }
+.stat-card.general:hover { transform: none; }
+.stat-card.deaev { border-color: var(--vtr-deaev); cursor: default; }
+.stat-card.deaev:hover { transform: none; }
+.stat-card.amb { border-color: var(--vtr-amb); }
+.stat-card.fire { border-color: var(--vtr-fire); }
+.stat-card.rescue { border-color: var(--vtr-rescue); }
+.stat-card.boat { border-color: var(--vtr-boat); }
+.stat-card.drone { border-color: var(--vtr-drone); }
+.stat-card.k9 { border-color: var(--vtr-k9); }
+.stat-card.pgv { border-color: var(--vtr-pgv); }
+.stat-card.special { border-color: var(--vtr-special); }
+.stat-val { font-size: 2.2rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+.stat-lbl { font-size: 0.65rem; text-transform: uppercase; font-weight: 700; color: var(--text-sec); margin-top: 5px; letter-spacing: 0.5px; }
+.stat-icon { position: absolute; top: 10px; right: 10px; font-size: 1.5rem; opacity: 0.1; color: var(--text-main); }
+
+/* --- FILTROS --- */
+.filters-area { background: var(--filter-bg); color: white; padding: 20px; border-radius: 12px; box-shadow: var(--shadow-card); margin-bottom: 25px; display: flex; flex-direction: column; gap: 15px; }
+.filter-top-row { display: grid; grid-template-columns: 1fr 200px; gap: 15px; }
+.search-input, .sort-select { padding: 12px 15px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.1); font-size: 0.95rem; background: rgba(255,255,255,0.1); color: white; font-weight: 500; }
+.search-input::placeholder { color: rgba(255,255,255,0.6); }
+.search-input:focus, .sort-select:focus { outline: none; border-color: var(--bm-red); background: rgba(255,255,255,0.2); }
+.sort-select option { background: #333; color: white; }
+.toggles-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toggle-label { font-weight: 700; font-size: 0.85rem; margin-right: 5px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; }
+.toggle-btn { display: inline-flex; align-items: center; cursor: pointer; background: rgba(255,255,255,0.08); padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.05); user-select: none; }
+.toggle-btn:hover { background: rgba(255,255,255,0.2); }
+.toggle-btn input { display: none; }
+.toggle-btn.active { background: white; color: var(--bm-blue); box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-weight: 700; }
+.toggle-btn.active.t-amb { color: #1e40af; }
+.toggle-btn.active.t-fire { color: #b91c1c; }
+.toggle-btn.active.t-rescue { color: #c2410c; }
+.toggle-btn.active.t-boat { color: #0e7490; }
+.toggle-btn.active.t-drone { color: #4f46e5; }
+.toggle-btn.active.t-k9 { color: #d97706; }
+.toggle-btn.active.t-spec { color: #6b21a8; }
+
+/* --- GRID CARDS --- */
+.grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+.city-card { background: var(--bg-card); border-radius: 10px; box-shadow: var(--shadow-card); border: 1px solid var(--border-color); display: flex; flex-direction: column; position: relative; overflow: hidden; transition: transform 0.2s; }
+.city-card:hover { transform: translateY(-3px); border-color: #9ca3af; }
+.city-status-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; z-index: 1; }
+.st-ok { background-color: var(--status-ok); }
+.st-warn { background-color: var(--status-warn); }
+.st-crit { background-color: var(--status-crit); }
+.city-card.is-critical { border: 1px solid var(--status-crit); }
+.city-card.is-critical::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; box-shadow: inset 0 0 10px rgba(239,68,68,0.2); pointer-events: none; z-index: 0; }
+.card-body { padding: 15px 15px 15px 22px; position: relative; z-index: 2; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+.city-title-group { display: flex; flex-direction: column; }
+.city-title { font-size: 1.1rem; font-weight: 800; color: var(--text-main); text-transform: uppercase; letter-spacing: -0.3px; line-height: 1.2; }
+.city-meta { font-size: 0.75rem; color: var(--text-sec); margin-top: 2px; }
+.map-link { color: var(--text-sec); text-decoration: none; font-size: 1rem; padding: 4px; border-radius: 4px; }
+.map-link:hover { background-color: var(--bg-body); color: var(--bm-red); }
+.card-actions { display: flex; gap: 6px; align-items: center; }
+.edit-card-btn { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 4px 8px; border-radius: 5px; font-size: 0.75rem; cursor: pointer; font-weight: 600; display: none; }
+body.admin-mode .edit-card-btn { display: inline-flex; align-items: center; gap: 3px; }
+.clickable-badge { cursor: pointer; transition: transform 0.1s; }
+.clickable-badge:hover { transform: scale(1.05); box-shadow: 0 0 5px rgba(0,0,0,0.2); }
+.clickable-badge:active { transform: scale(0.95); }
+.efetivo-badge { background: var(--bg-body); color: var(--text-main); padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color); }
+.efetivo-badge.crit { color: var(--status-crit); border-color: var(--status-crit); }
+.quartel-row { display: flex; flex-direction: column; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--border-color); }
+.quartel-row:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.q-name { font-size: 0.8rem; font-weight: 700; color: var(--text-sec); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.q-details { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.q-efetivo-mini { font-size: 0.8rem; font-weight: 600; color: var(--text-main); white-space: nowrap; background: var(--bg-body); padding: 2px 6px; border-radius: 4px; }
+.chips-wrapper { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.vtr-chip { font-size: 0.7rem; font-weight: 700; color: white; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 1px 2px rgba(0,0,0,0.15); letter-spacing: 0.5px; }
+.bg-fire { background-color: var(--vtr-fire); }
+.bg-amb { background-color: var(--vtr-amb); }
+.bg-rescue { background-color: var(--vtr-rescue); }
+.bg-boat { background-color: var(--vtr-boat); }
+.bg-drone { background-color: var(--vtr-drone); }
+.bg-k9 { background-color: var(--vtr-k9); }
+.bg-pgv { background-color: var(--vtr-pgv); color: #78350f; }
+.bg-special { background-color: var(--vtr-special); }
+.bg-admin { background-color: var(--vtr-admin); }
+.no-results { grid-column: 1 / -1; text-align: center; padding: 60px; background: var(--bg-card); border-radius: 10px; border: 2px dashed var(--border-color); color: var(--text-sec); font-size: 1.1rem; }
+.map-section { margin-top: 30px; background: var(--bg-card); padding: 20px; border-radius: 12px; box-shadow: var(--shadow-card); border: 1px solid var(--border-color); }
+.map-section h2 { color: var(--bm-red); margin-bottom: 15px; font-size: 1.2rem; text-transform: uppercase; font-weight: 800; border-left: 5px solid var(--bm-red); padding-left: 12px; }
+.responsive-map { position: relative; padding-bottom: 60vh; height: 0; overflow: hidden; border-radius: 8px; border: 1px solid var(--border-color); }
+.responsive-map iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
+body.admin-mode header { border-top-color: #f59e0b; }
+.admin-mode-banner { display: none; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 16px; margin-bottom: 15px; font-size: 0.88rem; font-weight: 600; color: #92400e; text-align: center; }
+body.admin-mode .admin-mode-banner { display: block; }
+
+/* Aviso de armazenamento offline */
+.storage-warn { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 14px; font-size: 0.8rem; color: #92400e; margin-bottom: 12px; display: none; }
+.storage-warn.visible { display: block; }
+
+@media print {
+    body { background: white; color: black; padding: 0; font-size: 11px; }
+    .filters-area, .header-controls, .map-link, .edit-card-btn, .admin-mode-banner { display: none !important; }
+    .container { max-width: 100%; }
+    .grid-container { display: block; column-count: 2; }
+    .city-card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 15px; }
+}
+@media (max-width: 768px) {
+    .filter-top-row { grid-template-columns: 1fr; }
+    .header-info h1 { font-size: 1.2rem; }
+    .admin-body { grid-template-columns: 1fr; }
+    .admin-city-list { max-height: 200px; }
+}
+</style>
+</head>
+<body>
+
+<!-- =============================================
+     CUSTOM DIALOG (substitui alert/confirm/prompt)
+     ============================================= -->
+<div id="customDialogOverlay">
+    <div class="custom-dialog-box">
+        <div class="dlg-icon" id="dlgIcon">ℹ️</div>
+        <p class="dlg-msg" id="dlgMsg"></p>
+        <input class="dlg-input" id="dlgInput" type="text">
+        <div class="dlg-btns">
+            <button class="dlg-btn dlg-btn-cancel" id="dlgCancel" onclick="Dialog._cancel()">Cancelar</button>
+            <button class="dlg-btn dlg-btn-ok" id="dlgOk" onclick="Dialog._ok()">OK</button>
+        </div>
+    </div>
+</div>
+
+<!-- TELA DE LOGIN -->
+<div id="loginOverlay">
+    <div class="login-card">
+        <!-- LOGO ORIGINAL PRESERVADA -->
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/CBMPR_2023.svg/960px-CBMPR_2023.svg.png"
+             onerror="this.onerror=null;this.src='https://cdn-icons-png.flaticon.com/512/195/195156.png';"
+             alt="Brasão CBMPR" class="login-logo">
+        <h2 class="login-title">Acesso Restrito</h2>
+        <p class="login-subtitle">Comando e Controle Operacional</p>
+        <input type="password" id="passwordInput" class="login-input" placeholder="Digite a senha de acesso">
+        <button id="loginBtn" class="login-btn">Entrar</button>
+        <p id="loginError" class="login-error">Senha incorreta. Tente novamente.</p>
+    </div>
+</div>
+
+<!-- MODAL DE EFETIVO -->
+<div id="efetivoOverlay">
+    <div class="login-card" style="text-align:left;max-height:80vh;overflow-y:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <h3 id="efetivoTitle" class="login-title" style="font-size:1.1rem;margin:0;"></h3>
+            <button onclick="fecharEfetivo()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">×</button>
+        </div>
+        <div style="background:#f3f4f6;padding:10px;border-radius:8px;margin-bottom:10px;font-size:0.9rem;color:#555;">
+            ℹ️ <b>Nota:</b> Dados extraídos do Relatório Oficial. Efetivo calculado automaticamente.
+        </div>
+        <ul id="efetivoList" style="list-style:none;padding:0;"></ul>
+        <button onclick="fecharEfetivo()" class="login-btn" style="margin-top:20px;">Fechar</button>
+    </div>
+</div>
+
+<!-- PAINEL DE ADMINISTRAÇÃO -->
+<div id="adminOverlay">
+    <div class="admin-panel">
+        <div class="admin-header">
+            <div>
+                <h2>⚙️ Painel de Administração de Dados</h2>
+                <small style="opacity:0.7;">Edite, adicione ou remova cidades e guarnições. Salve para persistir as alterações.</small>
+            </div>
+            <div class="admin-header-btns">
+                <span id="adminSavedBadge" class="admin-badge-saved">✅ Salvo!</span>
+                <button class="btn-admin btn-save" style="background:#0284c7;" onclick="abrirImportadorExcel()">📋 Colar do Excel</button>
+                <button class="btn-admin btn-export" onclick="exportarJSON()">📤 Exportar JSON</button>
+                <button class="btn-admin btn-import" onclick="document.getElementById('importFileInput').click()">📥 Importar JSON</button>
+                <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importarJSON(event)">
+            </div>
+        </div>
+        <div class="admin-body">
+            <div class="admin-sidebar">
+                <div class="admin-search">
+                    <input type="text" id="adminCitySearch" placeholder="🔎 Buscar cidade..." oninput="renderAdminCityList()">
+                </div>
+                <div class="admin-city-list" id="adminCityList"></div>
+                <div class="admin-add-city">
+                    <button class="btn-sm" style="width:100%" onclick="adicionarCidade()">➕ Adicionar nova cidade</button>
+                </div>
+            </div>
+            <div class="admin-main" id="adminMain">
+                <div class="admin-placeholder">
+                    👈 Selecione uma cidade na lista para editar seus dados.<br><br>
+                    <small>Dica: O efetivo é calculado automaticamente a partir da lista de nomes da equipe.</small>
+                </div>
+            </div>
+        </div>
+        <div class="admin-footer">
+            <button class="btn-admin btn-save" onclick="salvarAlteracoes()">💾 Salvar Alterações</button>
+            <button class="btn-admin btn-close-admin" onclick="fecharAdmin()">✕ Fechar</button>
+            <button class="btn-admin btn-reset" onclick="resetarDados()">🔄 Restaurar Padrão</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL IMPORTAÇÃO EXCEL -->
+<div id="excelImportOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(30,58,138,0.92);z-index:10000;display:none;justify-content:center;align-items:center;backdrop-filter:blur(5px);">
+    <div class="login-card" style="max-width:800px;width:95%;text-align:left;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <h3 class="login-title" style="margin:0;">📊 Importação Inteligente (Excel/Calc)</h3>
+            <button onclick="fecharImportadorExcel()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">×</button>
+        </div>
+        <div style="background:#fffbeb;border:1px solid #fde68a;padding:12px;border-radius:8px;margin-bottom:15px;font-size:0.9rem;color:#92400e;">
+            <b>Instruções:</b> Abra o relatório de <b>ESCALA DE SERVIÇO</b> gerado pelo sistema.<br>
+            Aperte <b>Ctrl+A</b> para selecionar tudo e depois <b>Ctrl+C</b> para copiar.<br>
+            Clique na caixa abaixo e aperte <b>Ctrl+V</b> para colar.
+        </div>
+        <textarea id="excelPasteBox" placeholder="Clique aqui e pressione Ctrl+V para colar os dados do relatório..." style="width:100%;height:250px;padding:15px;border:2px dashed #93c5fd;border-radius:8px;font-family:monospace;font-size:0.85rem;resize:vertical;margin-bottom:15px;white-space:pre;overflow-x:auto;"></textarea>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="fecharImportadorExcel()" class="btn-admin btn-close-admin">Cancelar</button>
+            <button onclick="processarImportacaoExcel()" class="btn-admin btn-save">⚙️ Processar Tabela</button>
+        </div>
+    </div>
+</div>
+
+<!-- CONTEÚDO PRINCIPAL -->
+<div class="container" id="mainContent">
+
+    <div class="admin-mode-banner">
+        ⚠️ Modo Administrador ativo — Botões de edição rápida visíveis nos cards.
+        <button onclick="sairModoAdmin()" style="margin-left:10px;background:none;border:1px solid #92400e;color:#92400e;padding:3px 10px;border-radius:5px;cursor:pointer;font-weight:600;">Sair do modo admin</button>
+    </div>
+
+    <div id="storageWarn" class="storage-warn">
+        ⚠️ Armazenamento local indisponível neste contexto. As alterações feitas no Admin <b>não serão salvas</b> ao fechar a página. Use Exportar/Importar JSON para persistir dados.
+    </div>
+
+    <header>
+        <div class="header-left">
+            <!-- LOGO ORIGINAL PRESERVADA -->
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/dc/CBMPR_2023.svg/960px-CBMPR_2023.svg.png"
+                 onerror="this.onerror=null;this.src='https://cdn-icons-png.flaticon.com/512/195/195156.png';"
+                 alt="Brasão CBMPR" class="logo-img">
+            <div class="header-info">
+                <h1>Mapa de Força Dinâmico</h1>
+                <div class="header-meta">
+                    <span>🗓️ <span id="dataAtual">—</span></span>
+                    <span>•</span>
+                    <span id="dataVersionBadge" class="data-version">Escala Padrão</span>
+                    <span>•</span>
+                    <span title="Desenvolvedora">💻 Dev: Cb. QPBM Nhelyfer K Ap de Oliveira - SEOP</span>
+                </div>
+            </div>
+        </div>
+        <div class="header-controls">
+            <div id="totalCitiesBox" class="info-box">
+                <span class="alert-val" id="totalCitiesDisplay">0</span>
+                <span class="alert-lbl">CIDADES</span>
+            </div>
+            <div id="criticalAlert" class="alert-box">
+                <span class="alert-val" id="criticalCount">0</span>
+                <span class="alert-lbl">CRÍTICOS</span>
+            </div>
+            <button class="action-btn admin-btn" id="adminBtn" onclick="abrirAdmin()">⚙️ Admin</button>
+            <button class="action-btn" onclick="toggleDarkMode()">
+                <span id="darkIcon">🌙</span> <span id="darkText">Escuro</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- KPI -->
+    <div class="ops-panel">
+        <div class="stat-card general"><span class="stat-icon">👨‍🚒</span><div class="stat-val" id="totalEfetivo">0</div><div class="stat-lbl">Efetivo Total</div></div>
+        <div class="stat-card deaev"><span class="stat-icon">🕒</span><div class="stat-val" id="countDeaev">0</div><div class="stat-lbl">Escala Extra (DEAEV)</div></div>
+        <div class="stat-card amb" onclick="ativarFiltro('amb')"><span class="stat-icon">🚑</span><div class="stat-val" id="countAmb">0</div><div class="stat-lbl">Ambulâncias</div></div>
+        <div class="stat-card fire" onclick="ativarFiltro('fire')"><span class="stat-icon">🚒</span><div class="stat-val" id="countFire">0</div><div class="stat-lbl">Combate a Incêndios</div></div>
+        <div class="stat-card rescue" onclick="ativarFiltro('rescue')"><span class="stat-icon">🛟</span><div class="stat-val" id="countRescue">0</div><div class="stat-lbl">Busca e Salvamento</div></div>
+        <div class="stat-card k9" onclick="ativarFiltro('k9')"><span class="stat-icon">🐕‍🦺</span><div class="stat-val" id="countK9">0</div><div class="stat-lbl">Binômios (K9)</div></div>
+        <div class="stat-card drone" onclick="ativarFiltro('drone')"><span class="stat-icon">🚁</span><div class="stat-val" id="countDrone">0</div><div class="stat-lbl">Aeronaves (RPA)</div></div>
+        <div class="stat-card boat" onclick="ativarFiltro('boat')"><span class="stat-icon">🛥️</span><div class="stat-val" id="countBoat">0</div><div class="stat-lbl">Embarcações</div></div>
+        <div class="stat-card pgv" onclick="ativarFiltro('pgv')"><span class="stat-icon">🏊</span><div class="stat-val" id="countPGV">0</div><div class="stat-lbl">Guarda-Vidas (PGV)</div></div>
+        <div class="stat-card special" onclick="ativarFiltro('spec')"><span class="stat-icon">🚜</span><div class="stat-val" id="countSpecial">0</div><div class="stat-lbl">Apoio Pesado</div></div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="filters-area">
+        <div class="filter-top-row">
+            <input type="text" id="filtroCidade" class="search-input" placeholder="🔎 Buscar por cidade, quartel ou viatura...">
+            <select id="sortSelect" class="sort-select">
+                <option value="nome">🔤 Nome (A-Z)</option>
+                <option value="efetivo_asc">⚠️ Criticidade (Menor Efetivo)</option>
+                <option value="efetivo_desc">💪 Força (Maior Efetivo)</option>
+            </select>
+        </div>
+        <div class="toggles-row">
+            <span class="toggle-label">Filtrar Recursos:</span>
+            <label class="toggle-btn t-amb"><input type="checkbox" id="filterAmb"> 🚑 Ambulância</label>
+            <label class="toggle-btn t-fire"><input type="checkbox" id="filterFire"> 🚒 Incêndio</label>
+            <label class="toggle-btn t-rescue"><input type="checkbox" id="filterRescue"> 🛟 Busca e Salvamento</label>
+            <label class="toggle-btn t-k9"><input type="checkbox" id="filterK9"> 🐕‍🦺 Binômios (K9)</label>
+            <label class="toggle-btn t-drone"><input type="checkbox" id="filterDrone"> 🚁 Drones</label>
+            <label class="toggle-btn t-boat"><input type="checkbox" id="filterBoat"> 🛥️ Embarcações</label>
+            <label class="toggle-btn t-pgv"><input type="checkbox" id="filterPGV"> 🏊 Guarda-Vidas</label>
+            <label class="toggle-btn t-spec"><input type="checkbox" id="filterSpecial"> 🚜 Apoio/Pesado</label>
+        </div>
+    </div>
+
+    <div id="listaCidades" class="grid-container"></div>
+    <div id="semResultados" class="no-results" style="display:none;">
+        <div style="font-size:3rem;margin-bottom:10px;">🔭</div>
+        Nenhum recurso encontrado com os parâmetros atuais.
+    </div>
+
+    <div class="map-section">
+        <h2>🗺️ Mapa de Situação Operacional</h2>
+        <div class="responsive-map">
+            <iframe src="./Painel de Comando e Controle - Mapa de Força Dinâmico_files/embed.html" width="640" height="480"></iframe>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================
+// ⚙️ CONFIGURAÇÕES
+// ============================================================
+const CORRECT_PASS = "193";
+const ADMIN_PASS   = "admin193";
+const STORAGE_KEY  = "mdf_dados_v2";
+const VERSION_KEY  = "mdf_versao";
+
+// ============================================================
+// 🗨️ SISTEMA DE DIALOG CUSTOMIZADO
+// Substitui alert(), confirm() e prompt() nativos,
+// que são BLOQUEADOS pelo sandbox do Google Sites.
+// ============================================================
+const Dialog = {
+    _resolve: null,
+    _type: 'alert',
+
+    show(message, type = 'alert', defaultValue = '', icon = '') {
+        return new Promise(resolve => {
+            this._resolve = resolve;
+            this._type = type;
+
+            const icons = { alert: 'ℹ️', confirm: '⚠️', prompt: '✏️', success: '✅', error: '❌' };
+            document.getElementById('dlgIcon').textContent = icon || icons[type] || 'ℹ️';
+            document.getElementById('dlgMsg').textContent = message;
+
+            const input  = document.getElementById('dlgInput');
+            const cancel = document.getElementById('dlgCancel');
+            const ok     = document.getElementById('dlgOk');
+
+            if (type === 'prompt') {
+                input.style.display = 'block'; input.classList.add('visible');
+                input.value = defaultValue;
+                cancel.style.display = 'block'; cancel.classList.add('visible');
+                ok.textContent = 'OK';
+            } else if (type === 'confirm') {
+                input.style.display = 'none'; input.classList.remove('visible');
+                cancel.style.display = 'block'; cancel.classList.add('visible');
+                ok.textContent = 'Confirmar';
+            } else {
+                input.style.display = 'none'; input.classList.remove('visible');
+                cancel.style.display = 'none'; cancel.classList.remove('visible');
+                ok.textContent = 'OK';
+            }
+
+            document.getElementById('customDialogOverlay').classList.add('active');
+            if (type === 'prompt') setTimeout(() => input.focus(), 80);
+        });
+    },
+
+    _ok() {
+        const overlay = document.getElementById('customDialogOverlay');
+        overlay.classList.remove('active');
+        const val = this._type === 'prompt'
+            ? document.getElementById('dlgInput').value
+            : (this._type === 'confirm' ? true : undefined);
+        if (this._resolve) this._resolve(val);
+        this._resolve = null;
+    },
+
+    _cancel() {
+        document.getElementById('customDialogOverlay').classList.remove('active');
+        if (this._resolve) this._resolve(this._type === 'confirm' ? false : null);
+        this._resolve = null;
+    }
+};
+
+// Teclas Enter/Escape no dialog
+document.addEventListener('keydown', e => {
+    if (!document.getElementById('customDialogOverlay').classList.contains('active')) return;
+    if (e.key === 'Enter') Dialog._ok();
+    if (e.key === 'Escape') Dialog._cancel();
+});
+
+// Atalhos legíveis
+const showAlert   = (msg, icon) => Dialog.show(msg, 'alert',   '', icon);
+const showConfirm = (msg)        => Dialog.show(msg, 'confirm', '');
+const showPrompt  = (msg, def)   => Dialog.show(msg, 'prompt',  def || '');
+
+// ============================================================
+// 💾 localStorage PROTEGIDO
+// (pode ser bloqueado em iframes de terceiros)
+// ============================================================
+let _storageOk = true;
+(function testStorage() {
+    try {
+        localStorage.setItem('__test__', '1');
+        localStorage.removeItem('__test__');
+    } catch(e) {
+        _storageOk = false;
+    }
+})();
+
+function lsGet(key) {
+    if (!_storageOk) return null;
+    try { return localStorage.getItem(key); } catch(e) { return null; }
+}
+function lsSet(key, val) {
+    if (!_storageOk) return false;
+    try { localStorage.setItem(key, val); return true; } catch(e) { return false; }
+}
+function lsRemove(key) {
+    if (!_storageOk) return;
+    try { localStorage.removeItem(key); } catch(e) {}
+}
+
+// ============================================================
+// 📦 DADOS PADRÃO
+// ============================================================
+const DADOS_PADRAO = [
+    { nome: "ALMIRANTE TAMANDARE", quarteis: [{ nome: "PB Almirante Tamandare", viaturas: "AA 11587, ABTR 0211", equipe: ["Cb. QPBM Edinelson Santos De Souza", "Cb. QPBM Kaue Julio Zamboni", "Cb. QPBM Joanna Maria Kawalec", "Sd. QPBM Lucas Herkenhoff Vieira De Almeida", "Sd. QPBM Ricardo Augusto Ramos", "2° Sgt. QPBM Julio Cesar Ildebrando (DEAEV)"] }] },
+    { nome: "ALTONIA", quarteis: [{ nome: "PB Altônia", viaturas: "ABT 41, ABTR 0177", equipe: ["Cb. QPBM José Nogueira Ramos Junior", "Sd. QPBM Rodrigo Juliano Walker", "Sd. QPBM Eduardo Borges Junior (DEAEV)", "Cb. QPBM Ronilei Teofilo Dos Santos (DEAEV)", "2º Ten. QOEBM Marcos Antônio da Silva"] }] },
+    { nome: "AMPERE", quarteis: [{ nome: "BC Ampere", viaturas: "ABTBC 0124, ABTDC 0029", equipe: ["ADC CIVIL Airton Luiz da Rocha Pinto", "ADC CIVIL Claudio Roberto Luquini", "ADC CIVIL Lindomar Ribeiro de Jesuz"] }] },
+    { nome: "ANDIRA", quarteis: [{ nome: "BC Andirá", viaturas: "ABTBC 126, ABTDC 26", equipe: ["ADC CIVIL Roberto Luiz da Costa", "ADC CIVIL João Marcos Lanza Lopes"] }] },
+    { nome: "ANTONINA", quarteis: [{ nome: "CB Antonina", viaturas: "AA 11588, ABTR BM 13755", equipe: ["3° Sgt. QPBM Marco Aurelio Coca Da Silva", "2° Sgt. QPBM Henrique Ribeiro Felix", "Cb. QPBM Everson Alves Polidoro (DEAEV)", "Cb. QPBM Curlan De Carvalho"] }] },
+    { nome: "APUCARANA", quarteis: [{ nome: "Quartel Central", viaturas: "AA 16227, ABS 15834, ABS 11790, ABT 4675, ATP 10838", equipe: ["Sd. QPBM Roger Nicolas Ribeiro", "1° Sgt. QPBM Claudio Jose Salustiano Da Silva", "Sd. QPBM Felipe William Dias da Silva (DEAEV)", "Subten. QPBM Márcio Felipe Do Carmo", "Maj. QOBM Elcio José De Meira", "2° Sgt. QPBM Gustavo Luiz Maiola Baptistao", "Sd. QPBM Felipe Rogerio Moimas Dias", "Sd. QPBM Robson Souza Ferreira da Silva (DEAEV)", "Sd. QPBM Ricardo Arruda Santos", "Sd. QPBM Gustavo Freitas Batista"] }] },
+    { nome: "ARAPONGAS", quarteis: [{ nome: "PB Arapongas", viaturas: "AA BM 00027, ABS 11821, ABTR 8751, AT 00079", equipe: ["Cb. QPBM Alvaro Ceolim Weiss", "Cb. QPBM Fernando De Souza (DEAEV)", "Sd. QPBM Raphael Rodrigues Annunciação", "Subten. QPBM Luciano Brunatto de Araujo Vidal", "3º Sgt. QPBM Fabio Pereira Messias", "2º Sgt. QPBM Eder Aparecido Ribeiro (DEAEV)", "Sd. QPBM Leonardo Vitor Nascimento Silverio", "Cb. QPBM Felipe Hervinn Haimann"] }] },
+    { nome: "ARAPOTI", quarteis: [{ nome: "BC Arapoti", viaturas: "ABTBC 0167", equipe: ["ADC CIVIL Juramil Alex dos Santos", "ADC CIVIL Julio César Ribeiro Santos", "ADC CIVIL Adriana Aparecida Machado"] }] },
+    { nome: "ARAUCARIA", quarteis: [{ nome: "PB Pq. Cachoeira", viaturas: "AA 42, ABTR 10898", equipe: ["Cb. QPBM Jessica Berlofa Fadel", "Cb. QPBM Alan Dos Santos Martins (DEAEV)", "Cb. QPBM Lucas Ismael Barreta (DEAEV)", "Cb. QPBM Gustavo Stuart Ferreira", "Cb. QPBM Joao Henrique Sant'Ana Candido", "Cb. QPBM Felipe Schimieguel (DEAEV)", "Sd. QPBM Rafael Ortiz Gois (DEAEV)", "3º Sgt. QPBM Rodrigo Aparecido Pires"] }] },
+    { nome: "ASSAI", quarteis: [{ nome: "BC Assaí", viaturas: "ABTDC 57, ATP 9781", equipe: ["ADC CIVIL Cesar Ferreira Rodrigues", "ADC CIVIL Claudiney Vicente da Silva", "ADC CIVIL Alvaro Johnny de Souza Araujo", "2° Sgt. QPBM Odelavio Casassola"] }] },
+    { nome: "ASSIS CHATEAUBRIAND", quarteis: [{ nome: "PBC Assis Chat.", viaturas: "ABTBC 0123", equipe: ["ADC CIVIL Roberlei Cesar Beduli", "ADC CIVIL José Carlos de Paula", "ADC CIVIL Reginaldo Ribas"] }] },
+    { nome: "ASTORGA", quarteis: [{ nome: "BC Astorga", viaturas: "AADC SAMU, ABTDC 39", equipe: ["ADC CIVIL Carlos Wagner Zenaro", "ADC CIVIL Jader Paulo Trevisan", "ADC CIVIL Jose Vidal", "ADC CIVIL Deivid Souza Silva", "3º Sgt. QPBM Tiago Giovani Cardoso Grilo"] }] },
+    { nome: "BANDEIRANTES", quarteis: [{ nome: "PB Bandeirantes", viaturas: "AA BM 00136, ABS BM 00015, ABTR 8731, ABTR BM 14955", equipe: ["Sd. QPBM Rodrigo Claudiano Lima da Silva", "Sd. QPBM Allan Bonfim de Lima", "3º Sgt. QPBM Diego Andre Vasconcelos", "Sd. QPBM Adriel Cesar Cardoso", "Sd. QPBM Erick Paduan Sartorio (DEAEV)", "Sd. QPBM Edgar Augusto Aliberti"] }] },
+    { nome: "BELA VISTA DO PARAISO", quarteis: [{ nome: "BC Bela Vista", viaturas: "ABS 9823, ABTDC 55, ABTDC 75, ATM DC 50", equipe: ["Subten. QPBM Giovani Jose Bordin", "ADC CIVIL Valdemir Regonatte", "ADC CIVIL Ednaldo Juvidi"] }] },
+    { nome: "CAMBARA", quarteis: [{ nome: "BC Cambará", viaturas: "ABTBC 161", equipe: ["ADC CIVIL Misael Bertoloto", "ADC CIVIL Reginaldo Alves", "ADC CIVIL Valter Donizete Bernucci", "ADC CIVIL Nelson Kleber Martins", "1° Sgt. QPBM Geudis Marcelo Milani"] }] },
+    { nome: "CAMBE", quarteis: [{ nome: "PB Cambé", viaturas: "AA BM 00253, ABS BM 00185, ABTR BM 00204", equipe: ["3° Sgt. QPBM Rafael De Bassi", "Sd. QPBM Alberto Luiz Cunha Canezin", "1° Sgt. QPBM Leandro Azarias Faustino", "1° Sgt. QPBM Marcio Marafon", "Cb. QPBM Silvia Midori Akimoto", "Cb. QPBM Anderson De Moraes"] }] },
+    { nome: "CAMPINA GRANDE DO SUL", quarteis: [{ nome: "PB Campina G. Sul", viaturas: "AA 14892, ABTR BM 0149", equipe: ["Cb. QPBM Adriano Ferreira Lima Camacho", "Sd. QPBM Andrey Augusto Silva De Goss", "Cb. QPBM Allan Jeffrey James Dashiell Da Silveira (DEAEV)", "3º Sgt. QPBM Elieder Marcos", "Sd. QPBM Bruna Pereira Da Silva", "Sd. QPBM Everton Carvalho de Souza"] }] },
+    { nome: "CAMPO LARGO", quarteis: [{ nome: "PB Campo Largo", viaturas: "AA BM025, ABTR 14959", equipe: ["Cb. QPBM Adilson De Sales (DEAEV)", "Cb. QPBM Antonio Gilberto Vieira Junior", "3º Sgt. QPBM Alexandre Martins Kava", "3° Sgt. QPBM Silvio Cesar Ferreira Borges", "Cb. QPBM Leonardo Stevam Do Nascimento", "Sd. QPBM Tufy Kabbas Junior", "Cb. QPBM Glauco Jonathas Thadeu Correia (DEAEV)"] }] },
+    { nome: "CAMPO MOURAO", quarteis: [{ nome: "PB Campo Mourão", viaturas: "AA 14889, AA BM 0119, ABS BM 0197, ABT 11378, ABT 1518, ABTR 10900, ABTR BM 0212", equipe: ["Sd. QPBM Christopher Rech Vieira", "Sd. QPBM Renan Caldeira Belotto", "Subten. QPBM José Carlos De Souza", "3º Sgt. QPBM Lucas Machado De Oliveira", "Sd. QPBM Eduardo Andreani Cabral", "1° Sgt. QPBM Cezar Galvao De Lima", "Cb. QPBM Airton Barbon", "Sd. QPBM Willian Camara Botolo", "1° Sgt. QPBM Marcos Gorri De Oliveira (DEAEV)", "Cap. QOBM Lenin Mello Mazzini", "Sd. QPBM Igor Alisson Spagnol Pereira"] }] },
+    { nome: "CANDOI", quarteis: [{ nome: "BC Candói", viaturas: "ABTBC 0123", equipe: ["ADC CIVIL Ari Gonçalves de Deus", "ADC CIVIL Darci Camargo Gonçalves", "ADC CIVIL Rogerio Pedro Cavalli", "1° Ten. QOBM Lucas Daniel Verbiski Kulik", "Sd. QPBM Rhuan Luiz Galvão da Rocha"] }] },
+    { nome: "CAPANEMA", quarteis: [{ nome: "PB Capanema", viaturas: "AA BM 0251, ABT 13767, ABTDC 0030", equipe: ["Sd. QPBM Caio Henrique Rodrigues", "Sd. QPBM Victor Hugo Justiniano De Souza Martins", "Cb. QPBM Andre Junior Gabriel (DEAEV)", "ADC CIVIL Nardeli Alflen", "Cb. QPBM Anderson José Sieklicki", "Cap. QOBM Murilo Oliveira Santos"] }] },
+    { nome: "CASCAVEL", quarteis: [
+        { nome: "QC Cascavel", viaturas: "AA BM 0141, ABS 0084, ABS 0050, ABTR 15223, CT BM 0110, K9 Sherlock, RPA Mavic 3T", equipe: ["2º Sgt. QPBM Gildomar Trevisan", "Cb. QPBM Rafael Mayer", "3º Sgt. QPBM Rodrigo Rodrigues Ribeiro", "1° Ten. QOBM Charles Fonseca da Silva", "3° Sgt. QPBM Marcio Ricardo Mequelussi Da Silva", "Med. CIVIL Clederson Bitencourt", "Med. CIVIL Oswaldo Luís Garcia Fagundes", "3º Sgt. QPBM Gildo Novak", "Sd. QPBM Fernanda Grazielle Ribeiro", "Cb. QPBM Fernando Ita Ferres Goncalves", "Cap. QOBM Felipe Alves De Carvalho", "2º Ten. QOBM Jorge Iglikoski", "Subten. QPBM Sérgio Jamir Koerich", "3° Sgt. QPBM Alan Rubel", "Cb. QPBM Eduardo Frangiotti Testa", "3º Sgt. QPBM Sandro Rogério Ropelatto", "Guarnição K9/RPA Cascavel"] },
+        { nome: "PB Ten. Edy", viaturas: "AA 14872, ABTR 10911, ATM 9195", equipe: ["1° Sgt. QPBM Nilson Aparecido Veiga Da Silva", "Sd. QPBM Alex Eduardo dos Santos", "1° Sgt. QPBM Nilson Daniel Da Silva", "Cb. QPBM Jairo Estevam Rigon", "Cb. QPBM Alisson Antonio Ferreira", "Cb. QPBM Willian Marcelo Telles Mellk"] },
+        { nome: "PB Cabo Bonatto", viaturas: "AA BM 0252, ABS 15840, ABTR BM 0203", equipe: ["Cb. QPBM Cláudia Gracieli De Souza", "Cb. QPBM Humberto Alexandre Dalchau", "Cb. QPBM Adriano Marques", "Cb. QPBM Ivonei Jung Potolann", "2° Sgt. QPBM Daniel Ferreira De Souza Junior"] }
+    ] },
+    { nome: "CASTRO", quarteis: [{ nome: "PB Castro", viaturas: "AA BM 00040, ABS BM 0132, ABT 14912, ABTR BM 0232", equipe: ["Cb. QPBM Leandro Thiago Motta", "Subten. QPBM Hamilton Dias Ribeiro Sobrinho (DEAEV)", "Sd. QPBM Matheus Lee Dos Santos Dubas", "Sd. QPBM Estéfano Alfredo Pavan Gonçalves", "3° Sgt. QPBM Rodrigo Vieira Bernardo", "1° Sgt. BM RR Jerson Francisco De Lima Rodrigues", "2º Sgt. QPBM Rodrigo Geraldo Vieira"] }] },
+    { nome: "CIANORTE", quarteis: [{ nome: "PB Cianorte", viaturas: "AA 14897, ABTR 0210, K9 Horus, K9 Taz", equipe: ["3º Sgt. QPBM Elieder Gomes Moreira", "Sd. QPBM Thamires Peres Semtchuk", "Sd. QPBM Vanildo Perrud", "2º Sgt. QPBM William Woyda", "3º Sgt. QPBM Jose Alberto Moreira De Castro", "Sd. QPBM Tayla Tamires Kohut", "Cb. QPBM Franquês Júnior Garcia De Souza", "1° Ten. QOBM Warison Caue Padovani Pinto"] }] },
+    { nome: "COLOMBO", quarteis: [
+        { nome: "PB São Gabriel", viaturas: "AA 14922, ABS 15819, ABTR 13764", equipe: ["Cb. QPBM Wilian Ademir Rodrigues", "Cb. QPBM José Francisco Souza Rodrigues Junior (DEAEV)", "2º Sgt. QPBM Marcos Francisco Borba Cordeiro (DEAEV)", "Asp. Of. BM QOBM ALINE PACHECO AGUIRRE", "1° Ten. QOBM Cristian Dal Maso Ferreira", "Cb. QPBM Luis Antonio De Andrade E Silva", "Sd. QPBM Maikon Tiago Freitas De Araujo", "1° Sgt. QPBM Edmar Manoel Lucas", "Sd. QPBM Luiz Vitor Mota", "Sd. QPBM Sthefany Leticia Rodrigues (DEAEV)"] },
+        { nome: "PB São Dimas", viaturas: "AABM 00038", equipe: ["3° Sgt. QPBM Vagner Mendes Marchioto", "Sd. QPBM Jeferson Galdino Da Rocha", "Cb. QPBM Gabriel De Macedo Martins (DEAEV)", "ADC CIVIL Edson do Socorro Veloso"] }
+    ] },
+    { nome: "CORNELIO PROCOPIO", quarteis: [{ nome: "PB Cornélio Procópio", viaturas: "AA 14888, ABS 15830, ABTR 10914, ABTR 7791, ABTR BM 00207", equipe: ["Sd. QPBM Denny Marlon Lourenço Moura", "Cb. QPBM Darci Ruiz Sanches Filho", "3º Sgt. QPBM Luciano Ferreira", "Cb. QPBM Lucas Severino Dos Santos Filho", "3° Sgt. QPBM Laudelino Jose Soares Junior", "Cb. QPBM Maike Mergulhão Dias", "Cap. QOBM Luana Da Silva Pereira"] }] },
+    { nome: "CORONEL VIVIDA", quarteis: [{ nome: "PB Coronel Vivida", viaturas: "AABM 00021, ABTR 10908", equipe: ["Sd. QPBM Alan Chaves Borges", "Sd. QPBM Felipe Silveira Brum", "3º Sgt. QPBM Ricardo Ignacheski", "Sd. QPBM Wilian Bonfim de Assis", "2º Ten. QOBM Mauricio Branco Pereira", "Sd. QPBM Vitor Bittencourt Martins de Almeida"] }] },
+    { nome: "CURITIBA", quarteis: [
+        { nome: "COBOM (Central de Operações)", viaturas: "Coordenação Operacional", equipe: ["Cap. QOBM Leonardo Sartori Batisti", "Cap. QOBM Everton Luiz Ribas De Oliveira", "Subten. QPBM Elden Alan Vaz Da Costa", "1° Sgt. QPBM Miguel Sandro Leal (DEAEV)", "3° Sgt. QPBM Fabricio Albuquerque Alves", "Cb. QPBM Rudson Ribeiro", "Cb. QPBM Allan Henrique Da Cruz Vaz", "3º Sgt. QPBM Marcelo Augusto Pinto", "3° Sgt. QPBM Erico Junior Da Silva", "Cb. QPBM Matheus Eduard Speck", "Cb. QPBM Carlos Roberto Cardoso Da Silva", "1° Sgt. QPBM Laertes Adriano Schultz", "3º Sgt. QPBM Ricardo Wilson Beitum", "Cb. QPBM Carlos Henrique Martins", "Cb. QPBM Elison Diogo Marafon", "3º Sgt. QPBM Heuberlan Silva Soares", "1° Sgt. QPBM Ademir De Santiago (DEAEV)"] },
+        { nome: "QC Portão", viaturas: "AA 14059, ABTR 14863, CT 4496", equipe: ["1º Sgt. QPBM Amilton Kanarski (DEAEV)", "Cb. QPBM Isaac De Araujo Lima", "Cb. QPBM Rodrigo Otavio Mazurosky", "Cb. QPBM Rodrigo Munhoz Lima", "2° Sgt. QPBM Alessandro Mendes Modesto", "Sd. QPBM Odilon De Oliveira Franco Neto", "Sd. QPBM Elias Ladi Livi Junior", "1° Sgt. QPBM Inevio Angelo Alquieri", "Sd. QPBM Juliano Lemes Carneiro"] },
+        { nome: "Quartel do GOST", viaturas: "ABRESC 0001, ABS 15845, ABS 15846, K9 Skull, K9 Conor, K9 Bruce, K9 Hórus, K9 Meghan, K9 Diana, K9 Amora, K9 Gaia, K9 Zyah, K9 Mali, K9 Nutella, K9 Raio, RPA Matrice 300 RTK", equipe: ["Cb. QPBM Rodrigo Oliveira Santos", "Sd. QPBM Roger Vidotti Batista", "Subten. QPBM Jaciel Sidre Junior", "Cb. QPBM Vinicius Machado Prestes", "Cb. QPBM Ricardo Luiz Nascimento", "Cb. QPBM Eber Ronitt Silva Leite", "2° Ten. QOEBM Luciano Dos Santos Martins"] }
+    ] },
+    { nome: "DOIS VIZINHOS", quarteis: [{ nome: "PB Dois Vizinhos", viaturas: "AA BM 0028, ABT 14458, ABTR 8735", equipe: ["Cb. QPBM Rafael Junior Schneider", "3º Sgt. QPBM Elton Leandro Valente (DEAEV)", "Sd. QPBM Renata Bontorin Chaves (DEAEV)", "3º Sgt. QPBM Alex Sandro Da Silva", "3º Sgt. QPBM Carlos Henrique Brugnara", "Cap. QOBM Murilo Oliveira Santos", "Sd. QPBM Malcon Prestes Soranso"] }] },
+    { nome: "FAZENDA RIO GRANDE", quarteis: [{ nome: "PB Fazenda Rio Grande", viaturas: "AA 00044, ABTR 0213", equipe: ["3º Sgt. QPBM Tiago Daniel Barbosa", "Cb. QPBM Roque Aleikseivz De Farias", "2° Sgt. QPBM Paulo Diniz De Abreu", "Sd. QPBM Juan Carlos Meireles", "Sd. QPBM Mariana Padilha Vieira", "Sd. QPBM Carlos Augusto da Silva Floriano"] }] },
+    { nome: "FOZ DO IGUACU", quarteis: [
+        { nome: "PB Vila A", viaturas: "AA 0237, ABS 15842, ABS 15852, ABTF 15885, ABTR 14867, LBS 001, K9 Bravo, RPA Mavic 2 Dual", equipe: ["2º Sgt. QPBM Rhaffael Carlindo Cenci De Barros", "Cb. QPBM Darci Basilio Ducato Junior", "Cb. QPBM Leandro Farias Dos Santos (DEAEV)", "2º Ten. QOBM Marina Marques Landal Senkow", "1° Sgt. QPBM Neimar Luiz Da Silva (DEAEV)", "3º Sgt. QPBM Silvio Aparecido De Souza", "Cb. QPBM Vilmar Bordinhão Dos Santos Júnior", "Cap. QOBM William Cesar Ferrandin", "3º Sgt. QPBM Gentil De Sousa Bueno", "Cb. QPBM Vitor Luiz Kniess"] },
+        { nome: "PB Maracanã", viaturas: "AA 0235, ABS 9834, ABTR 10904", equipe: ["Cb. QPBM Diovany Da Silva (DEAEV)", "2º Sgt. QPBM Leonir Jose Schio (DEAEV)", "Cb. QPBM Arthur Gavilan Gonçalves", "1° Sgt. QPBM Daltro Jeferson Fernantes", "3° Sgt. QPBM Roberto Roling"] },
+        { nome: "PB Vanderlei Rissardi", viaturas: "AA 0160, ABTR 0202", equipe: ["Cb. QPBM Jairo Andre Da Silva", "Sd. QPBM Marcelo Henrique Da Silva", "3° Sgt. QPBM Andre Luiz Kazienko Sallet", "Sd. QPBM Heitor Marcelo Ribeiro Estevam", "Cb. QPBM Heloisa Martinez Da Rosa Gouveia", "Sd. QPBM Daniela Kazienko Sallet"] }
+    ] },
+    { nome: "GUARAPUAVA", quarteis: [
+        { nome: "QC de Guarapuava", viaturas: "AA 11597, ABS 15813, ABTR 0206", equipe: ["Cb. QPBM Deniel Régis Batista (DEAEV)", "Cb. QPBM Thawan De Oliveira Locks (DEAEV)", "Sd. QPBM Rauro Luan Karpinski", "1º Ten. QOBM Lucas Daniel Verbiski Kulik", "Cb. QPBM Sérgio De Oliveira Miranda", "2° Sgt. QPBM Eduardo Leal", "1º Sgt. QPBM Geison André Folquenin (DEAEV)", "1° Sgt. QPBM Luiz Fernandes Zentil"] },
+        { nome: "PB Primavera", viaturas: "ABTR 0120", equipe: ["3° Sgt. QPBM Solivan De Paula", "Cb. QPBM Cleverson William Siqueira", "Sd. QPBM Rafhael Mello Corrêa (DEAEV)"] }
+    ] },
+    { nome: "GUARATUBA", quarteis: [
+        { nome: "CB Guaratuba", viaturas: "AA 14894, ABTR 8753, ABTR BM 0173, DRONE GUARATUBA", equipe: ["2º Sgt. QPBM Leonardo Wasilewski", "Cb. QPBM Sandra Granzotto Budernik", "Subten. QPBM Emerson Adriano Gomes", "3° Sgt. QPBM Cleber Rodrigo Castilho", "2° Sgt. QPBM Luiz Fernando De Souza", "Cb. QPBM Vinicius Pereira"] },
+        { nome: "Postos Guarda-Vidas (PGV)", viaturas: "PGV Central, PGV Cristo, PGV Coroados I, PGV Coroados II, PGV Brejatuba I, PGV Brejatuba II", equipe: ["Efetivo Guarda-Vidas Guaratuba (125)"] }
+    ] },
+    { nome: "LONDRINA", quarteis: [
+        { nome: "QC Londrina", viaturas: "AA BM 00051, AA BM 00070, AA BM 00118, AA BM 00240, ABS 11175, ABS 15827, ABTR 11761, ABTR BM 00280, APM 13757, CT 11536, K9 Luke, RPA Mavic 2 Enterprise", equipe: ["Sd. QPBM Lucas de Moura Bittencourt (DEAEV)", "2° Sgt. QPBM Junior De Oliveira Soares (DEAEV)", "2º Sgt. QPBM Elias Antonio Ferreira Junior (DEAEV)", "Sd. QPBM Robson Vantroba Mota", "Cb. QPBM Gustavo Henrique Cardoso", "Cb. QPBM Thiago Haynner Volovicz", "3º Sgt. QPBM Agnaldo Dos Reis Pereira", "Sd. QPBM Victor Hugo Barbosa Martins", "Cb. QPBM Fabio Dos Santos Barcelos", "Sd. QPBM Sergio Rodrigo Tavares Barbosa", "Cb. QPBM Tenille Graziela Segantini", "3° Sgt. QPBM Julio Cesar Dinardi De Pinho", "3º Sgt. QPBM Guilherme Borotta De Campos", "Cb. QPBM Felipe Jammes Valle Teixeira", "Cb. QPBM Diogo Dos Santos Evangelista", "Cap. QOBM Jonathan Cesar Do Prado"] },
+        { nome: "PB Zona Sul", viaturas: "AA BM 00256, ABTR 10937", equipe: ["Cb. QPBM Alex Souza Gomes", "Sd. QPBM Gabriel Albano Buriola", "Cb. QPBM Bruno De Souza Nascimento", "3º Sgt. QPBM Kleber Bosco De Moura", "3º Sgt. QPBM Lincoln Dos Santos Caberlin", "Cb. QPBM Antonio Jose Derbli Neto", "2° Sgt. QPBM Aristeu Jose Da Silva"] },
+        { nome: "PB Zona Norte", viaturas: "ABTR 14464", equipe: ["3º Sgt. QPBM Erick Fernandes Robim", "Cb. QPBM Giovani Rocco Nogueira Zonta", "Cb. QPBM Eduardo Granado Ferreira"] }
+    ] },
+    { nome: "MARINGA", quarteis: [
+        { nome: "QC de Maringá", viaturas: "AA 0247, AA BM 0250, ABS BM 0086, ABTR BM 0281, APM 14028, ATP 9578, CT 12397", equipe: ["3° Sgt. QPBM José Alexandre Lisboa (DEAEV)", "Cb. QPBM Fábio Rogério Flóes (DEAEV)", "3º Sgt. QPBM Renato El Memari", "3º Sgt. QPBM Maycon Negrelli Pedro (DEAEV)", "2° Sgt. QPM 2-0 Ubirajara Suano Galvao", "3° Sgt. QPBM Fernando Rodrigo Da Silva", "3º Sgt. QPBM Waddington Augusto Zaguine", "Sd. QPBM Laurel Henrique Zawalski Martins (DEAEV)"] },
+        { nome: "PB Jardim Alvorada", viaturas: "ABTR 13321", equipe: ["Asp. Of. BM QOBM Vitor Rocha", "1° Sgt. QPBM Alysson Fernando Dos Santos", "Cb. QPBM Paola Notoya Morales"] },
+        { nome: "PB Maringá Velho", viaturas: "ABTR 13320", equipe: ["Sd. QPBM Bruno Nogueira Da Silva", "Cb. QPBM Johnny Carlos Gomes", "3° Sgt. QPBM Willian Sergio Goncales Da Silva Junior"] }
+    ] },
+    { nome: "MATINHOS", quarteis: [
+        { nome: "CB Matinhos", viaturas: "AA 0033, ABTR 14965, DRONE MATINHOS", equipe: ["1° Ten. QOBM Hannah Yuri Andrade Karigyo", "Sd. QPBM Paulo Roberto Galvao Molina", "Cb. QPBM Dennys Emmerick Soares Da Silva", "2º Sgt. QPBM Fabio Rodrigo Pereira Da Cunha", "2° Ten. QOEBM Davi Carlos Schiticoski Ramos", "Sd. QPBM Igor dos Santos", "Sd. QPBM Luiz Guilherme De Oliveira", "Subten. QPBM Dirceu Aparecido De Brito"] },
+        { nome: "Postos Guarda-Vidas (PGV)", viaturas: "PGV Matinhos, PGV Caiobá, PGV Pipeline, PGV Praia Brava, PGV Praia Grande I, PGV Riviera I", equipe: ["GVC CIVIL Octavio Real Mattos de Lima", "3° Sgt. QPBM William Alexandre Mariano", "Efetivo Guarda-Vidas Matinhos"] }
+    ] },
+    { nome: "PARANAGUA", quarteis: [
+        { nome: "CB Nilson Neves", viaturas: "AA 16249, ABTR 14866, ATP 12473", equipe: ["Cb. QPBM Robson Fernandes Da Cruz", "Sd. QPBM Mariane Ferreira de campos", "2º Ten. QEOPM Jose Luiz Martins Menezes", "Cb. QPBM Guilherme Da Silva Jorge", "Sd. QPBM Flavia Belgrowicz Martins", "Sd. QPBM Lucas Daniel Nogarotto", "3º Sgt. QPBM Ronaldo Alves Vidal (DEAEV)", "Cb. QPBM Leandro Eckel (DEAEV)", "Cap. QOBM Xisto André Frazatto Dos Santos"] },
+        { nome: "CB Costeira", viaturas: "ABS 14940, ABS BM 0187, ABTR 0201, LBS 199", equipe: ["3º Sgt. QPBM Jaques Kuhn", "Sd. QPBM Thiago Lucas dos Santos", "3º Sgt. QPBM Max Vida Santos", "3° Sgt. QPBM Jorge Luis Cherubim", "Cb. QPBM Carlos Eduardo Baptista Da Trindade", "Cb. QPBM Anderson De Araújo Santana"] }
+    ] },
+    { nome: "PONTA GROSSA", quarteis: [
+        { nome: "QC Ponta Grossa", viaturas: "AA 0036, ABS 14909, ABS 15807, ABTR 14463, APC 11308, AT 0080", equipe: ["ADC CIVIL Almir Pedro Mielke", "Cb. QPBM Marcos Vinicius Souza Da Costa", "Cb. QPBM Waldir Rodrigo Nantes", "1° Sgt. QPBM Cristiano De Oliveira", "Cb. QPBM Gustavo De Souza Charello", "3º Sgt. QPBM Fabricio Eduardo Sgoda", "ADC CIVIL BASILIO RUBLESKI", "ADC CIVIL Silvio Cézar Da Rocha"] },
+        { nome: "PB Nova Rússia", viaturas: "ABTR 10912", equipe: ["ADC CIVIL Marcelo Teixeira Passos", "ADC CIVIL Clodoaldo Alves Castanho", "Cb. QPBM Wagner Adir Balduino Kluppell Zambao"] }
+    ] },
+    { nome: "PONTAL DO PARANA", quarteis: [
+        { nome: "CB Pontal do Paraná", viaturas: "AA 0039, ABTR 00147, MAS 0095, DRONE PONTAL DO PARANÁ", equipe: ["Cb. QPBM Diego Conrado Amantino", "Cb. QPBM Silvio Martins De Freitas", "Cb. QPBM Oswaldo Jose Vieira Neto", "Sd. QPBM Fellipe de Morais Silva Pereira", "3° Sgt. QPBM Douglas Scherer Martins", "3º Sgt. QPBM Douglas Rudiak De Oliveira", "Sd. QPBM Cristiano Junio Lima"] },
+        { nome: "Postos Guarda-Vidas (PGV)", viaturas: "PGV Pontal I, PGV Pontal II, PGV Shangri-lá I, PGV Shangri-lá II, PGV Ipanema I", equipe: ["Efetivo Guarda-Vidas Pontal (115)"] }
+    ] },
+    { nome: "SAO JOSE DOS PINHAIS", quarteis: [{ nome: "QC Afonso Pena", viaturas: "AA 00033, AA 11816, ABS 15826, ABTR 16000, AT 0082, MP 000", equipe: ["1° Sgt. QPBM Aldevanir Alves Da Fonseca", "3° Sgt. QPBM Paulo Henrique De Souza Rosa", "ADC CIVIL Antonio Narcizio Calderan", "ADC CIVIL JULIANO APARECIDO CIOTA", "ADC CIVIL Valdenei Leal", "ADC CIVIL Izair Dafre", "ADC CIVIL Jaqueson Stang", "1° Sgt. QPBM Celso Alberto Johner", "1° Sgt. QPBM Paulo Cesar Bonet", "ADC CIVIL Claudemir Antonio Hemsing", "Cb. QPBM Deivyd Willyan Banak (DEAEV)", "2° Sgt. QPBM Erickson Carlos Vicente (DEAEV)"] }] },
+    { nome: "TOLEDO", quarteis: [
+        { nome: "QC de Toledo", viaturas: "AA 14065, ABTR 10909", equipe: ["2° Sgt. QPBM Antônio Roberto Morch", "2° Sgt. QPBM Alcides De Col Júnior", "Cb. QPBM Álvaro Da Costa e Sousa Neto Júnior", "Subten. QPBM Paulo Sergio da Silva (DEAEV)", "Subten. QPBM Arlei Bieger (DEAEV)", "Subten. QPBM Edinei Marcelo Gottselig", "Cb. QPBM Fábio Willian Nascimento"] },
+        { nome: "PB Satélite", viaturas: "AA 15214, ABTDC 0059", equipe: ["Cb. QPBM Laerte Stênio Hillebrand", "Cb. QPBM Cherlon Conti Roding", "Cb. QPBM Juarez de Oliveira Pacheco"] }
+    ] },
+    { nome: "UMUARAMA", quarteis: [{ nome: "QC de Umuarama", viaturas: "AA BM 0020, ABS 0055, ABTR 14462", equipe: ["Cb. QPBM Ney Victor Silveira De Souza", "Sd. QPBM Janice Caroline Hardt", "Sd. QPBM Mateus Guidugli Dal Pozzo", "2° Ten. QOEBM Marcos Antônio da Silva", "Subten. QPBM Edison Luis Rezende Dos Santos (DEAEV)", "2° Sgt. QPBM Fabio Rogerio Bravo Martins", "3° Sgt. QPBM Leandro De Azevedo (DEAEV)", "Sd. QPBM Jean Lucas Marques dos Santos", "Sd. QPBM Lucas Antonio Calzavara", "3° Sgt. QPBM Douglas Arcanjo Dias"] }] },
+    { nome: "UNIAO DA VITORIA", quarteis: [{ nome: "PB União da Vitória", viaturas: "AA 14884, ABS 11767, ABT 13769, MAS 15207", equipe: ["3° Sgt. QPBM Felipe Bendlin", "Cb. QPBM Diego Fleitux", "Sd. QPBM Lucas Matheus Guedes Oleriano", "Cb. QPBM João Fernando Gaioski", "Sd. QPBM Antonia Francisca Cavassim", "3º Sgt. QPBM Josilmar Krulikoski Barrida", "2° Sgt. QPBM Devanir Pereira De Carvalho Junior"] }] }
+];
+
+// ============================================================
+// 🗃️ GERENCIAMENTO DE DADOS
+// ============================================================
+let dadosCidades = [];
+let adminCidadeIndex = -1;
+
+function calcularEfetivo(cidade) {
+    return cidade.quarteis.reduce((sum, q) => sum + (q.equipe ? q.equipe.length : 0), 0);
+}
+
+function carregarDados() {
+    try {
+        const salvo = lsGet(STORAGE_KEY);
+        if (salvo) {
+            dadosCidades = JSON.parse(salvo);
+            const versao = lsGet(VERSION_KEY) || 'Personalizada';
+            document.getElementById('dataVersionBadge').textContent = '💾 ' + versao;
+        } else {
+            dadosCidades = JSON.parse(JSON.stringify(DADOS_PADRAO));
+            document.getElementById('dataVersionBadge').textContent = 'Escala 14/04/2026';
+        }
+    } catch(e) {
+        dadosCidades = JSON.parse(JSON.stringify(DADOS_PADRAO));
+    }
+    dadosCidades.forEach(c => { c.totalEfetivo = calcularEfetivo(c); });
+
+    if (!_storageOk) {
+        document.getElementById('storageWarn').classList.add('visible');
+    }
+}
+
+function salvarDadosLocal(versao) {
+    dadosCidades.forEach(c => { c.totalEfetivo = calcularEfetivo(c); });
+    const v = versao || new Date().toLocaleDateString('pt-BR') + ' ' + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    lsSet(STORAGE_KEY, JSON.stringify(dadosCidades));
+    lsSet(VERSION_KEY, v);
+    document.getElementById('dataVersionBadge').textContent = '💾 ' + v;
+}
+
+// ============================================================
+// ⚙️ PAINEL ADMIN — todas as funções agora são async
+// ============================================================
+let eAdminAutenticado = false;
+
+async function abrirAdmin() {
+    if (!eAdminAutenticado) {
+        const senha = await showPrompt('Digite a senha do administrador:');
+        if (senha === null) return;
+        if (senha !== ADMIN_PASS) {
+            await showAlert('Senha de administrador incorreta.', '❌');
+            return;
+        }
+        eAdminAutenticado = true;
+    }
+    document.getElementById('adminOverlay').style.display = 'flex';
+    document.body.classList.add('admin-mode');
+    adminCidadeIndex = -1;
+    renderAdminCityList();
+}
+
+function fecharAdmin() {
+    document.getElementById('adminOverlay').style.display = 'none';
+}
+
+function sairModoAdmin() {
+    document.body.classList.remove('admin-mode');
+    eAdminAutenticado = false;
+}
+
+function renderAdminCityList() {
+    const busca = (document.getElementById('adminCitySearch').value || '').toLowerCase();
+    const lista = document.getElementById('adminCityList');
+    lista.innerHTML = '';
+    dadosCidades.forEach((cidade, idx) => {
+        if (busca && !cidade.nome.toLowerCase().includes(busca)) return;
+        const ef = calcularEfetivo(cidade);
+        const div = document.createElement('div');
+        div.className = 'admin-city-item' + (adminCidadeIndex === idx ? ' selected' : '');
+        div.innerHTML = `<span>${cidade.nome}</span><span class="badge-ef">👤${ef}</span>`;
+        div.onclick = () => { adminCidadeIndex = idx; renderAdminCityList(); renderAdminEditor(); };
+        lista.appendChild(div);
+    });
+}
+
+function renderAdminEditor() {
+    const main = document.getElementById('adminMain');
+    if (adminCidadeIndex < 0) {
+        main.innerHTML = '<div class="admin-placeholder">👈 Selecione uma cidade para editar.</div>';
+        return;
+    }
+    const cidade = dadosCidades[adminCidadeIndex];
+    let quartisHtml = '';
+    cidade.quarteis.forEach((q, qi) => {
+        const equipeStr = (q.equipe || []).join('\n');
+        quartisHtml += `
+        <div class="quartel-editor" id="qeditor-${qi}">
+            <button class="quartel-del-btn" onclick="removerQuartel(${qi})">✕ Remover</button>
+            <label>Nome do Quartel / Posto</label>
+            <input type="text" value="${escHTML(q.nome)}" oninput="atualizarQuartelField(${qi},'nome',this.value)">
+            <label>Viaturas <span class="q-hint">(separadas por vírgula)</span></label>
+            <input type="text" value="${escHTML(q.viaturas||'')}" oninput="atualizarQuartelField(${qi},'viaturas',this.value)">
+            <label>Efetivo / Equipe <span class="q-hint">(um nome por linha — DEAEV: adicione "(DEAEV)" ao final)</span></label>
+            <textarea oninput="atualizarQuartelField(${qi},'equipe',this.value)">${escHTML(equipeStr)}</textarea>
+            <div class="q-hint" style="margin-top:5px;">📊 Efetivo calculado: <b>${(q.equipe||[]).length}</b> pessoas</div>
+        </div>`;
+    });
+    main.innerHTML = `
+        <div class="admin-notice">💡 O efetivo é calculado <b>automaticamente</b> pelo número de linhas na caixa de Equipe.</div>
+        <label style="font-size:0.78rem;font-weight:700;color:#6b7280;text-transform:uppercase;">Nome da Cidade</label>
+        <input class="admin-city-name-input" type="text" value="${escHTML(cidade.nome)}" oninput="dadosCidades[${adminCidadeIndex}].nome=this.value.toUpperCase();renderAdminCityList()">
+        <h3 style="margin:15px 0 10px;">Quartéis / Postos</h3>
+        ${quartisHtml}
+        <button class="btn-add-q" onclick="adicionarQuartel()">➕ Adicionar Quartel / Posto</button>
+        <div style="margin-top:15px;text-align:right;">
+            <button class="btn-sm danger" onclick="removerCidade()">🗑️ Excluir esta Cidade</button>
+        </div>`;
+}
+
+function atualizarQuartelField(qi, campo, valor) {
+    if (adminCidadeIndex < 0) return;
+    const q = dadosCidades[adminCidadeIndex].quarteis[qi];
+    if (!q) return;
+    if (campo === 'equipe') {
+        q.equipe = valor.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    } else {
+        q[campo] = valor;
+    }
+    const hint = document.querySelector(`#qeditor-${qi} .q-hint:last-child`);
+    if (hint) hint.innerHTML = `📊 Efetivo calculado: <b>${(q.equipe||[]).length}</b> pessoas`;
+}
+
+function adicionarQuartel() {
+    if (adminCidadeIndex < 0) return;
+    dadosCidades[adminCidadeIndex].quarteis.push({ nome: 'Novo Quartel', viaturas: '', equipe: [] });
+    renderAdminEditor();
+}
+
+async function removerQuartel(qi) {
+    const ok = await showConfirm('Remover este quartel?');
+    if (!ok) return;
+    dadosCidades[adminCidadeIndex].quarteis.splice(qi, 1);
+    renderAdminEditor();
+}
+
+async function adicionarCidade() {
+    const nome = await showPrompt('Nome da nova cidade (será convertido para MAIÚSCULO):');
+    if (!nome) return;
+    dadosCidades.push({ nome: nome.toUpperCase(), quarteis: [{ nome: 'Quartel', viaturas: '', equipe: [] }], totalEfetivo: 0 });
+    dadosCidades.sort((a,b) => a.nome.localeCompare(b.nome));
+    adminCidadeIndex = dadosCidades.findIndex(c => c.nome === nome.toUpperCase());
+    renderAdminCityList();
+    renderAdminEditor();
+}
+
+async function removerCidade() {
+    const cidade = dadosCidades[adminCidadeIndex];
+    const ok = await showConfirm(`Excluir permanentemente a cidade "${cidade.nome}"?`);
+    if (!ok) return;
+    dadosCidades.splice(adminCidadeIndex, 1);
+    adminCidadeIndex = -1;
+    renderAdminCityList();
+    renderAdminEditor();
+}
+
+async function salvarAlteracoes() {
+    const versao = await showPrompt('Descrição desta versão (ex: Escala 15/04/2026):', new Date().toLocaleDateString('pt-BR'));
+    if (versao === null) return;
+    salvarDadosLocal(versao || undefined);
+    const badge = document.getElementById('adminSavedBadge');
+    badge.style.display = 'inline-block';
+    setTimeout(() => badge.style.display = 'none', 3000);
+    renderizarCidades();
+    renderAdminCityList();
+}
+
+function exportarJSON() {
+    dadosCidades.forEach(c => { c.totalEfetivo = calcularEfetivo(c); });
+    const json = JSON.stringify(dadosCidades, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mdf_dados_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+async function importarJSON(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const dados = JSON.parse(e.target.result);
+            if (!Array.isArray(dados)) throw new Error('Formato inválido');
+            const ok = await showConfirm(`Importar ${dados.length} cidades? Os dados atuais serão substituídos.`);
+            if (!ok) return;
+            dadosCidades = dados;
+            dadosCidades.forEach(c => { c.totalEfetivo = calcularEfetivo(c); });
+            salvarDadosLocal('Importado ' + new Date().toLocaleDateString('pt-BR'));
+            adminCidadeIndex = -1;
+            renderAdminCityList();
+            renderAdminEditor();
+            renderizarCidades();
+            await showAlert('Dados importados com sucesso!', '✅');
+        } catch(err) {
+            await showAlert('Erro ao importar: ' + err.message, '❌');
+        }
+        event.target.value = '';
+    };
+    reader.readAsText(file);
+}
+
+async function resetarDados() {
+    const ok = await showConfirm('⚠️ Restaurar dados padrão? Todas as alterações serão perdidas!');
+    if (!ok) return;
+    lsRemove(STORAGE_KEY);
+    lsRemove(VERSION_KEY);
+    dadosCidades = JSON.parse(JSON.stringify(DADOS_PADRAO));
+    dadosCidades.forEach(c => { c.totalEfetivo = calcularEfetivo(c); });
+    document.getElementById('dataVersionBadge').textContent = 'Escala 14/04/2026';
+    adminCidadeIndex = -1;
+    renderAdminCityList();
+    renderAdminEditor();
+    renderizarCidades();
+    await showAlert('Dados restaurados ao padrão!', '✅');
+}
+
+function editarCidadeDireta(index) {
+    if (!eAdminAutenticado) { abrirAdmin(); return; }
+    adminCidadeIndex = index;
+    document.getElementById('adminOverlay').style.display = 'flex';
+    renderAdminCityList();
+    renderAdminEditor();
+}
+
+// ============================================================
+// 🔐 LOGIN
+// ============================================================
+function checkLogin() {
+    const input = document.getElementById('passwordInput');
+    const errorMsg = document.getElementById('loginError');
+    if (input.value === CORRECT_PASS || input.value === ADMIN_PASS) {
+        if (input.value === ADMIN_PASS) {
+            eAdminAutenticado = true;
+            document.body.classList.add('admin-mode');
+        }
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        carregarDados();
+        renderizarCidades();
+        document.getElementById('dataAtual').textContent = new Date().toLocaleDateString('pt-BR');
+    } else {
+        errorMsg.style.display = 'block';
+        input.value = '';
+        input.focus();
+    }
+}
+
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    document.getElementById('darkIcon').textContent = isDark ? '☀️' : '🌙';
+    document.getElementById('darkText').textContent = isDark ? 'Claro' : 'Escuro';
+}
+
+// ============================================================
+// 📋 EFETIVO MODAL
+// ============================================================
+function verEfetivo(cIndex, qIndex) {
+    const modal = document.getElementById('efetivoOverlay');
+    const titulo = document.getElementById('efetivoTitle');
+    const lista = document.getElementById('efetivoList');
+    const cidade = dadosCidades[cIndex];
+    if (!cidade) return;
+    let nomes = [];
+    let tituloTexto = '';
+    if (qIndex === -1) {
+        tituloTexto = `Guarnição: ${cidade.nome} (Total)`;
+        cidade.quarteis.forEach(q => { if (q.equipe) nomes = nomes.concat(q.equipe); });
+    } else {
+        const q = cidade.quarteis[qIndex];
+        tituloTexto = `Guarnição: ${q ? q.nome : cidade.nome}`;
+        if (q && q.equipe) nomes = q.equipe;
+    }
+    titulo.textContent = tituloTexto;
+    lista.innerHTML = '';
+    if (nomes.length === 0) {
+        lista.innerHTML = '<li class="efetivo-list-item">Sem escala lançada.</li>';
+    } else {
+        [...new Set(nomes)].forEach(nome => {
+            const li = document.createElement('li');
+            li.className = 'efetivo-list-item';
+            let displayNome = nome.includes('(DEAEV)')
+                ? nome.replace('(DEAEV)', '') + '<span class="tag-deaev">DEAEV</span>'
+                : nome;
+            li.innerHTML = `<span class="efetivo-icon">👨‍🚒</span><span class="efetivo-name">${displayNome}</span>`;
+            lista.appendChild(li);
+        });
+    }
+    modal.style.display = 'flex';
+}
+
+function fecharEfetivo() {
+    document.getElementById('efetivoOverlay').style.display = 'none';
+}
+
+// ============================================================
+// 🔧 HELPERS
+// ============================================================
+function escHTML(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function removerAcentos(str) {
+    return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function getVtrType(vtr) {
+    const v = vtr.toLowerCase();
+    const p2 = vtr.substring(0,2).toUpperCase();
+    const p3 = vtr.substring(0,3).toUpperCase();
+    if (v.includes('k9') || v.includes('cão')) return 'k9';
+    if (v.includes('rpa') || v.includes('drone') || v.includes('mavic') || v.includes('matrice') || v.includes('harpia')) return 'drone';
+    if (v.includes('pgv') || v.includes('posto')) return 'pgv';
+    if (p3==='MAS'||p3==='LBS'||p3==='BAS'||p3==='BIS') return 'boat';
+    if (p2==='AA'||p2==='SI'||v.includes('samu')) return 'amb';
+    if (p3==='ABT'||p3==='ATF') return 'fire';
+    if (p2==='CT'||p3==='APM'||p3==='APC') return 'special';
+    if (p3==='ABS') return 'rescue';
+    return 'admin';
+}
+function gerarChipsViaturas(viaturasStr) {
+    if (!viaturasStr || viaturasStr==='N/A') return '';
+    const icons = { fire:'🚒', amb:'🚑', rescue:'🛟', boat:'🛥️', drone:'🚁', k9:'🐕', pgv:'🏊', special:'🚜', admin:'🚗' };
+    return [...new Set(viaturasStr.split(',').map(v=>v.trim()).filter(v=>v))].map(vtr => {
+        const t = getVtrType(vtr);
+        return `<span class="vtr-chip bg-${t}">${icons[t]||''} ${vtr}</span>`;
+    }).join('');
+}
+function getStatusClass(ef) {
+    return ef >= 5 ? 'st-ok' : ef >= 3 ? 'st-warn' : 'st-crit';
+}
+function ativarFiltro(tipo) {
+    const map = { amb:'filterAmb', fire:'filterFire', rescue:'filterRescue', k9:'filterK9', drone:'filterDrone', boat:'filterBoat', pgv:'filterPGV', spec:'filterSpecial' };
+    const cb = document.getElementById(map[tipo]);
+    if (cb) cb.click();
+}
+
+// ============================================================
+// 🖥️ RENDERIZAÇÃO PRINCIPAL
+// ============================================================
+function renderizarCidades() {
+    const termo = removerAcentos(document.getElementById('filtroCidade')?.value || '');
+    const sortMode = document.getElementById('sortSelect')?.value || 'nome';
+    const af = {
+        amb:    document.getElementById('filterAmb')?.checked,
+        fire:   document.getElementById('filterFire')?.checked,
+        rescue: document.getElementById('filterRescue')?.checked,
+        boat:   document.getElementById('filterBoat')?.checked,
+        spec:   document.getElementById('filterSpecial')?.checked,
+        drone:  document.getElementById('filterDrone')?.checked,
+        k9:     document.getElementById('filterK9')?.checked,
+        pgv:    document.getElementById('filterPGV')?.checked
+    };
+
+    document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active-filter'));
+    const activeMap = { amb:'.stat-card.amb', fire:'.stat-card.fire', rescue:'.stat-card.rescue', boat:'.stat-card.boat', spec:'.stat-card.special', drone:'.stat-card.drone', k9:'.stat-card.k9', pgv:'.stat-card.pgv' };
+    Object.entries(af).forEach(([k,v]) => { if(v) document.querySelector(activeMap[k])?.classList.add('active-filter'); });
+
+    const hasFilter = Object.values(af).some(v=>v);
+
+    let lista = dadosCidades.filter(cidade => {
+        const txt = removerAcentos(cidade.nome) + ' ' +
+                    cidade.quarteis.map(q => removerAcentos(q.nome) + ' ' + removerAcentos(q.viaturas||'')).join(' ');
+        if (!txt.includes(termo)) return false;
+        if (!hasFilter) return true;
+        const vtrs = cidade.quarteis.map(q=>q.viaturas||'').join(', ').toUpperCase();
+        if (af.amb    && (vtrs.includes('AA')||vtrs.includes('SAMU'))) return true;
+        if (af.fire   && (vtrs.includes('ABT')||vtrs.includes('ATF'))) return true;
+        if (af.rescue && vtrs.includes('ABS')) return true;
+        if (af.boat   && (vtrs.includes('MAS')||vtrs.includes('LBS')||vtrs.includes('BAS')||vtrs.includes('BIS'))) return true;
+        if (af.spec   && (vtrs.includes('CT ')||vtrs.includes('APM')||vtrs.includes('APC'))) return true;
+        if (af.drone  && (vtrs.includes('RPA')||vtrs.includes('MAVIC')||vtrs.includes('MATRICE')||vtrs.includes('DRONE')||vtrs.includes('HARPIA'))) return true;
+        if (af.k9     && vtrs.includes('K9')) return true;
+        if (af.pgv    && vtrs.includes('PGV')) return true;
+        return false;
+    });
+
+    lista.sort((a,b) => {
+        if (sortMode==='efetivo_asc')  return a.totalEfetivo - b.totalEfetivo;
+        if (sortMode==='efetivo_desc') return b.totalEfetivo - a.totalEfetivo;
+        return a.nome.localeCompare(b.nome);
+    });
+
+    let html = '';
+    lista.forEach(cidade => {
+        const idx = dadosCidades.indexOf(cidade);
+        const isCrit = cidade.totalEfetivo < 3;
+        const rows = cidade.quarteis.map((q, qi) => `
+            <div class="quartel-row">
+                <span class="q-name">${q.nome}</span>
+                <div class="q-details">
+                    <span class="q-efetivo-mini clickable-badge" title="Ver nomes" onclick="verEfetivo(${idx},${qi})">👤 ${(q.equipe||[]).length}</span>
+                    <div class="chips-wrapper">${gerarChipsViaturas(q.viaturas)}</div>
+                </div>
+            </div>`).join('');
+        const mapQ = encodeURIComponent(cidade.nome + ' Corpo de Bombeiros');
+        html += `
+            <div class="city-card ${isCrit ? 'is-critical' : ''}">
+                <div class="city-status-bar ${getStatusClass(cidade.totalEfetivo)}"></div>
+                <div class="card-body">
+                    <div class="card-header">
+                        <div class="city-title-group">
+                            <div class="city-title">${cidade.nome}</div>
+                            <div class="city-meta">${cidade.quarteis.length} Base(s) Operacional(is)</div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="edit-card-btn" onclick="editarCidadeDireta(${idx})">✏️ Editar</button>
+                            <div class="efetivo-badge ${isCrit?'crit':''} clickable-badge" onclick="verEfetivo(${idx},-1)">
+                                👤 ${cidade.totalEfetivo}
+                            </div>
+                        </div>
+                    </div>
+                    ${rows}
+                    <div style="margin-top:10px;text-align:right;">
+                        <a href="https://www.google.com/maps/search/?api=1&query=${mapQ}" target="_blank" class="map-link">📍 Localização</a>
+                    </div>
+                </div>
+            </div>`;
+    });
+
+    document.getElementById('listaCidades').innerHTML = html;
+    document.getElementById('semResultados').style.display = lista.length === 0 ? 'block' : 'none';
+    atualizarEstatisticas(lista);
+}
+
+function atualizarEstatisticas(lista) {
+    let tot=0, cAmb=0, cFire=0, cRescue=0, cSpec=0, cBoat=0, cDrone=0, cK9=0, cPGV=0, crit=0, deaev=0;
+    lista.forEach(city => {
+        tot += city.totalEfetivo;
+        if (city.totalEfetivo < 3) crit++;
+        const vtrs = new Set();
+        city.quarteis.forEach(q => {
+            if (q.equipe) q.equipe.forEach(p => { if(p.includes('(DEAEV)')) deaev++; });
+            (q.viaturas||'').split(',').forEach(v => vtrs.add(v.trim()));
+        });
+        vtrs.forEach(v => {
+            const t = getVtrType(v);
+            if(t==='amb')     cAmb++;
+            else if(t==='fire')    cFire++;
+            else if(t==='rescue')  cRescue++;
+            else if(t==='special') cSpec++;
+            else if(t==='boat')    cBoat++;
+            else if(t==='drone')   cDrone++;
+            else if(t==='k9')      cK9++;
+            else if(t==='pgv')     cPGV++;
+        });
+    });
+    const s = id => document.getElementById(id);
+    s('totalEfetivo').textContent     = tot;
+    s('countDeaev').textContent       = deaev;
+    s('countAmb').textContent         = cAmb;
+    s('countFire').textContent        = cFire;
+    s('countRescue').textContent      = cRescue;
+    s('countSpecial').textContent     = cSpec;
+    s('countBoat').textContent        = cBoat;
+    s('countDrone').textContent       = cDrone;
+    s('countK9').textContent          = cK9;
+    s('countPGV').textContent         = cPGV;
+    s('totalCitiesDisplay').textContent = lista.length;
+    const ca = s('criticalAlert');
+    if (crit > 0) { ca.style.display='flex'; s('criticalCount').textContent = crit; }
+    else ca.style.display = 'none';
+}
+
+// ============================================================
+// 📊 IMPORTAÇÃO DE PLANILHA
+// ============================================================
+function abrirImportadorExcel() {
+    document.getElementById('excelPasteBox').value = '';
+    document.getElementById('excelImportOverlay').style.display = 'flex';
+}
+function fecharImportadorExcel() {
+    document.getElementById('excelImportOverlay').style.display = 'none';
+}
+
+async function processarImportacaoExcel() {
+    const raw = document.getElementById('excelPasteBox').value;
+    if (!raw.trim()) { await showAlert('Cole os dados do relatório primeiro!', '⚠️'); return; }
+
+    const linhas = raw.split('\n');
+    let novoMapeamento = {};
+    let cidadeAtual = "DESCONHECIDA", quartelAtual = "BASE PRINCIPAL", viaturaAtual = "";
+
+    for (let i = 0; i < linhas.length; i++) {
+        let linha = linhas[i].trim();
+        if (!linha) continue;
+        if (linha.toUpperCase().includes('ESCALA DE SERVIÇO') || linha.toUpperCase().includes('VIATURA/SETOR')) continue;
+
+        const colunas = linhas[i].split('\t');
+        const col0 = (colunas[0] || '').trim();
+        const col1 = (colunas[1] || '').trim();
+        const col2 = (colunas[2] || '').trim();
+
+        if (col0 && !col1 && !col2) {
+            if (col0 === col0.toUpperCase() && col0.length > 3) cidadeAtual = col0;
+            else quartelAtual = col0;
+            viaturaAtual = "";
+            continue;
+        }
+
+        if (col2) {
+            if (col0) viaturaAtual = col0;
+            let nome = col2;
+            if (nome.includes('/')) nome = nome.split('/')[0].trim();
+            if (col1.toUpperCase().includes('DEAEV') && !nome.includes('(DEAEV)')) nome += ' (DEAEV)';
+
+            if (!novoMapeamento[cidadeAtual]) novoMapeamento[cidadeAtual] = { nome: cidadeAtual, quarteis: {}, totalEfetivo: 0 };
+            if (!novoMapeamento[cidadeAtual].quarteis[quartelAtual]) novoMapeamento[cidadeAtual].quarteis[quartelAtual] = { nome: quartelAtual, viaturas: new Set(), equipe: new Set() };
+
+            if (viaturaAtual) {
+                let vtrLimpa = viaturaAtual;
+                if (vtrLimpa.match(/^([A-Z]+ \d+) \d+$/)) vtrLimpa = vtrLimpa.replace(/^([A-Z]+ \d+) \d+$/, '$1');
+                novoMapeamento[cidadeAtual].quarteis[quartelAtual].viaturas.add(vtrLimpa);
+            }
+            novoMapeamento[cidadeAtual].quarteis[quartelAtual].equipe.add(nome);
+        }
+    }
+
+    const novosDados = Object.values(novoMapeamento).map(cid => {
+        cid.quarteis = Object.values(cid.quarteis).map(q => ({
+            nome: q.nome,
+            viaturas: Array.from(q.viaturas).join(', '),
+            equipe: Array.from(q.equipe)
+        }));
+        return cid;
+    });
+
+    // Preservar COBOM, GOST, K9 e Drones
+    DADOS_PADRAO.forEach(cidadePadrao => {
+        cidadePadrao.quarteis.forEach(quartelPadrao => {
+            let nomeQ = quartelPadrao.nome.toUpperCase();
+            if (!nomeQ.includes('COBOM') && !nomeQ.includes('GOST')) return;
+            let cidNova = novosDados.find(c => c.nome.trim().toUpperCase() === cidadePadrao.nome.trim().toUpperCase());
+            if (!cidNova) { cidNova = { nome: cidadePadrao.nome, quarteis: [], totalEfetivo: 0 }; novosDados.push(cidNova); }
+            let qNovo = cidNova.quarteis.find(q => q.nome.trim().toUpperCase() === quartelPadrao.nome.trim().toUpperCase());
+            if (!qNovo) {
+                const cidAtual = dadosCidades.find(c => c.nome.trim().toUpperCase() === cidadePadrao.nome.trim().toUpperCase());
+                const qAtual = cidAtual?.quarteis.find(q => q.nome.trim().toUpperCase() === quartelPadrao.nome.trim().toUpperCase());
+                const fonte = qAtual || quartelPadrao;
+                cidNova.quarteis.push({ nome: fonte.nome, viaturas: fonte.viaturas, equipe: [...(fonte.equipe || [])] });
+            }
+        });
+    });
+
+    dadosCidades.forEach(cidadeAtualItem => {
+        cidadeAtualItem.quarteis.forEach(quartelAtualItem => {
+            let nomeQuartelUpper = quartelAtualItem.nome.toUpperCase();
+            if (nomeQuartelUpper.includes('COBOM') || nomeQuartelUpper.includes('GOST')) return;
+            let vtrsAntigas = (quartelAtualItem.viaturas || '').split(',').map(v => v.trim()).filter(v => v);
+            let fixos = vtrsAntigas.filter(v => { let l = v.toLowerCase(); return l.includes('k9') || l.includes('drone') || l.includes('rpa') || l.includes('mavic') || l.includes('matrice') || l.includes('harpia'); });
+            let equipeFixa = (quartelAtualItem.equipe || []).filter(e => { let l = e.toLowerCase(); return l.includes('k9') || l.includes('drone') || l.includes('rpa') || l.includes('harpia'); });
+            if (fixos.length > 0 || equipeFixa.length > 0) {
+                let cidNova = novosDados.find(c => c.nome.trim().toUpperCase() === cidadeAtualItem.nome.trim().toUpperCase());
+                if (!cidNova) { cidNova = { nome: cidadeAtualItem.nome, quarteis: [], totalEfetivo: 0 }; novosDados.push(cidNova); }
+                let qNovo = cidNova.quarteis.find(q => q.nome.trim().toUpperCase() === quartelAtualItem.nome.trim().toUpperCase());
+                if (!qNovo) { qNovo = { nome: quartelAtualItem.nome, viaturas: '', equipe: [] }; cidNova.quarteis.push(qNovo); }
+                let vtrsNovas = qNovo.viaturas.split(',').map(v => v.trim()).filter(v => v);
+                fixos.forEach(f => { if (!vtrsNovas.includes(f)) vtrsNovas.push(f); });
+                qNovo.viaturas = vtrsNovas.join(', ');
+                equipeFixa.forEach(ef => { if (!qNovo.equipe.includes(ef)) qNovo.equipe.push(ef); });
+            }
+        });
+    });
+
+    if (novosDados.length === 0) {
+        await showAlert('Nenhum dado válido encontrado. Certifique-se de copiar todo o relatório.', '⚠️');
+        return;
+    }
+
+    const ok = await showConfirm(`Importação concluída!\n\n${novosDados.length} cidades encontradas.\nCOBOM, GOST, Drones e K9 foram preservados.\n\nSubstituir a escala atual?`);
+    if (ok) {
+        dadosCidades = novosDados;
+        salvarDadosLocal('Importação Automática ' + new Date().toLocaleDateString('pt-BR'));
+        adminCidadeIndex = -1;
+        renderAdminCityList();
+        renderAdminEditor();
+        renderizarCidades();
+        fecharImportadorExcel();
+    }
+}
+
+// ============================================================
+// 🚀 INICIALIZAÇÃO
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('loginBtn').addEventListener('click', checkLogin);
+    document.getElementById('passwordInput').addEventListener('keypress', e => { if(e.key==='Enter') checkLogin(); });
+    document.getElementById('filtroCidade').addEventListener('input', renderizarCidades);
+    document.getElementById('sortSelect').addEventListener('change', renderizarCidades);
+    ['filterAmb','filterFire','filterRescue','filterBoat','filterSpecial','filterDrone','filterK9','filterPGV'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', renderizarCidades);
+    });
+    document.querySelectorAll('.toggle-btn input').forEach(input => {
+        input.addEventListener('change', e => {
+            e.target.checked ? e.target.parentElement.classList.add('active') : e.target.parentElement.classList.remove('active');
+        });
+    });
+    document.getElementById('efetivoOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) fecharEfetivo(); });
+    document.getElementById('adminOverlay').addEventListener('click',   e => { if(e.target===e.currentTarget) fecharAdmin(); });
+    document.getElementById('excelImportOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) fecharImportadorExcel(); });
+    // Fechar dialog clicando fora
+    document.getElementById('customDialogOverlay').addEventListener('click', e => { if(e.target===e.currentTarget) Dialog._cancel(); });
+});
+</script>
+</body>
+</html>
